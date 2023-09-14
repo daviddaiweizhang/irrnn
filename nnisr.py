@@ -97,8 +97,14 @@ class ParalleleNet(pl.LightningModule):
         self.save_hyperparameters()
 
     def forward(self, x, threshold=None):
+        if threshold is None:
+            threshold_list = [None for __ in range(len(self.nets))]
+        else:
+            threshold_list = [
+                    threshold[..., [i]]
+                    for i in range(len(self.nets))]
         y = [
-                net(x, threshold[..., [i]])
+                net(x, threshold_list[i])
                 for i, net, in enumerate(self.nets)]
         y = torch.cat(y, -1)
         return y
@@ -174,7 +180,8 @@ def fit(
                 l2pen=l2pen,
                 lr=lr),
             dataset=dataset, prefix=prefix,
-            batch_size=batch_size, epochs=epochs, device=device)
+            batch_size=batch_size, epochs=epochs,
+            load_existing=False, device=device)
     model.eval()
 
     model.to(device)
@@ -241,77 +248,84 @@ def compute_maineff(
             epochs=epochs,
             prefix=prefix_model,
             threshold=threshold,
-            device=device).T
+            device=device)
+    maineff_pred = maineff_pred.T
     if visual and s is None:
         i_slice = img_shape[-1] // 2
         for i_feature in range(3):
             n_covariates = maineff_obsr.shape[0]
-            maineff_obsr = maineff_obsr.reshape(
+            maineff_obsr_inflated = maineff_obsr.reshape(
                     (n_covariates,) + img_shape)
-            maineff_pred = maineff_pred.reshape(
+            maineff_pred_inflated = maineff_pred.reshape(
                     (n_covariates,) + img_shape)
             save_image(
-                    maineff_obsr[i_feature, ..., i_slice],
+                    maineff_obsr_inflated[i_feature, ..., i_slice],
                     f'{prefix_image}obsr-{i_feature}.png')
             save_image(
-                    maineff_pred[i_feature, ..., i_slice],
+                    maineff_pred_inflated[i_feature, ..., i_slice],
                     f'{prefix_image}pred-{i_feature}.png')
     return maineff_pred
 
 
 def compute_noiselogvar(
-        maineff, indiveff, x, y,
-        hidden_widths, lr, batch_size, epochs, prefix,
+        maineff, indiveff, x, y, s, img_shape,
+        hidden_widths, activation, lr, batch_size, epochs, prefix,
         visual=True, device=None):
-    n_observations, n_features = x.shape
-    img_shape = y.shape[1:]
-    explained = (
-            (x @ maineff.reshape(n_features, -1))
-            .reshape((n_observations,) + img_shape))
+    explained = x @ maineff
     noiselogvar_obsr = np.log(
             np.square(y - explained - indiveff)
             .mean(0, keepdims=True))
     noiselogvar_pred = fit(
-            noiselogvar_obsr,
-            hidden_widths=hidden_widths,
+            noiselogvar_obsr.T, coord=s, img_shape=img_shape,
+            hidden_widths=hidden_widths, activation=activation,
             lr=lr, batch_size=batch_size,
             epochs=epochs,
             prefix=prefix,
             threshold=None,
             device=device)
+    noiselogvar_pred = noiselogvar_pred.T
     if visual:
-        i_slice = y.shape[-1] // 2
-        save_image(noiselogvar_obsr[0, ..., i_slice], f'{prefix}obsr.png')
-        save_image(noiselogvar_pred[0, ..., i_slice], f'{prefix}pred.png')
+        i_slice = img_shape[-1] // 2
+        save_image(
+                noiselogvar_obsr.reshape(img_shape)[..., i_slice],
+                f'{prefix}obsr.png')
+        save_image(
+                noiselogvar_pred.reshape(img_shape)[..., i_slice],
+                f'{prefix}pred.png')
+
     return noiselogvar_pred
 
 
 def compute_indiveff(
-        maineff, noiselogvar, x, y,
-        hidden_widths, lr, batch_size, epochs, prefix, visual=True,
-        device=None):
-    n_observations, n_features = x.shape
-    img_shape = y.shape[1:]
-    y_explained = x @ maineff.reshape(maineff.shape[0], -1)
-    y_explained = y_explained.reshape(y_explained.shape[:1] + img_shape)
+        maineff, noiselogvar, x, y, s, img_shape,
+        hidden_widths, activation, l2pen, lr, batch_size,
+        epochs, prefix, visual=True, device=None):
+    y_explained = x @ maineff
     indiveff_obsr = y - y_explained
     indiveff_pred = fit(
-            indiveff_obsr,
+            value=indiveff_obsr.T, coord=s, img_shape=img_shape,
             hidden_widths=hidden_widths,
+            activation=activation,
             lr=lr, batch_size=batch_size,
             epochs=epochs,
             prefix=prefix,
             threshold=None,
-            l2pen=10.0,
+            l2pen=l2pen,
             device=device)
+    indiveff_pred = indiveff_pred.T
     if visual:
-        i_slice = y.shape[-1] // 2
+        i_slice = img_shape[-1] // 2
         for i_feature in range(3):
+            n_indivs = indiveff_obsr.shape[0]
+            indiveff_obsr_inflated = indiveff_obsr.reshape(
+                    (n_indivs,) + img_shape)
+            indiveff_pred_inflated = indiveff_pred.reshape(
+                    (n_indivs,) + img_shape)
             save_image(
-                    indiveff_obsr[i_feature, ..., i_slice],
+                    indiveff_obsr_inflated[i_feature, ..., i_slice],
                     f'{prefix}obsr-{i_feature}.png')
             save_image(
-                    indiveff_pred[i_feature, ..., i_slice],
+                    indiveff_pred_inflated[i_feature, ..., i_slice],
                     f'{prefix}pred-{i_feature}.png')
     return indiveff_pred
 
@@ -422,16 +436,16 @@ def compute_single_iter(
     indiveff = compute_indiveff(
             maineff=maineff,
             noiselogvar=noiselogvar,
-            x=x, y=y, s=s,
+            x=x, y=y, s=s, img_shape=img_shape,
             hidden_widths=tuple([e//4 for e in hidden_widths[::2]]),
-            activation=activation,
+            activation=activation, l2pen=10.0,
             lr=lr, batch_size=batch_size,
             epochs=(epochs+1)//2,
             prefix=f'{prefix_image}indiveff-', device=device)
 
     noiselogvar = compute_noiselogvar(
             maineff=maineff, indiveff=indiveff,
-            x=x, y=y, s=s,
+            x=x, y=y, s=s, img_shape=img_shape,
             hidden_widths=hidden_widths,
             activation=activation,
             lr=lr, batch_size=batch_size,
@@ -453,8 +467,8 @@ def compute_multi_iter(
         max_iter, prefix_model, prefix_image, device=None):
 
     for i_iter in range(max_iter):
-        prefix_model += 'iter{i_iter:02d}-'
-        prefix_model += 'iter{i_iter:02d}-'
+        prefix_model += f'iter{i_iter:02d}-'
+        prefix_model += f'iter{i_iter:02d}-'
         pred = compute_single_iter(
                 maineff=maineff, indiveff=indiveff,
                 noiselogvar=noiselogvar, threshold=threshold,
