@@ -16,4 +16,4 @@ python generate_data_synthetic.py \
     --seed=${seed} \
     --out=${datafile}
 
-python run_nnisr.py $datafile $outpref
+python run_irrnn.py $datafile $outpref

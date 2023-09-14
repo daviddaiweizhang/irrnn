@@ -6,7 +6,7 @@ import numpy as np
 import torch
 
 from utils import write_text, load_pickle, save_pickle
-from nnisr import fit_nnisr, get_coord
+from irrnn import fit_irrnn, get_coord
 
 
 def set_seed(seed):
@@ -83,9 +83,9 @@ def main():
     print('epochs:', args.epochs)
     print('batch_size:', batch_size)
 
-    print('Fitting nnisr...')
+    print('Fitting irrnn...')
     t0 = time()
-    pred = fit_nnisr(
+    pred = fit_irrnn(
             x=x, y=y, s=s, img_shape=img_shape,
             hidden_widths=hidden_widths,
             activation=args.activation,

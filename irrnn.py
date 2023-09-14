@@ -511,13 +511,13 @@ def normalize_coordinate(x):
     return x
 
 
-def fit_nnisr(
+def fit_irrnn(
         x, y, s=None, img_shape=None,
         hidden_widths=(256,)*4, activation='leakyrelu',
         alpha_threshold=0.05,
         n_permute=100, lr=1e-3, epochs=50, batch_size=4096,
         max_iter=2, n_states=11, alpha_states=0.5,
-        prefix='nnisr/', device=None, n_jobs=None):
+        prefix='irrnn/', device=None, n_jobs=None):
 
     if device is None:
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
