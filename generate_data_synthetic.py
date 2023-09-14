@@ -20,7 +20,7 @@ def get_args():
     parser.add_argument('--beta-stn', type=float, default=0.10)
     parser.add_argument('--omega-stn', type=float, default=0.05)
     parser.add_argument('--noise-dist', type=str, default='gauss')
-    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--seed', type=int, default=None)
     parser.add_argument('--out', type=str, default='data.pickle')
     args = parser.parse_args()
     return args
@@ -29,7 +29,8 @@ def get_args():
 def main():
 
     args = get_args()
-    set_seed(args.seed)
+    if args.seed is not None:
+        set_seed(args.seed)
 
     img_shape = (args.n_voxels, args.n_voxels, args.n_voxels)
     data = gen_data(

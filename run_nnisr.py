@@ -32,6 +32,7 @@ def get_args():
     parser.add_argument('--batch-size', type=int, default=65536)
     parser.add_argument('--n-jobs', type=int, default=None)
     parser.add_argument('--device', type=str, default=None)
+    parser.add_argument('--seed', type=int, default=None)
     parser.add_argument('-m', '--message', type=str, default=None)
     args = parser.parse_args()
     return args
@@ -39,7 +40,8 @@ def get_args():
 
 def main():
     args = get_args()
-    set_seed(0)
+    if args.seed is not None:
+        set_seed(args.seed)
 
     device = args.device
     if device is None:
