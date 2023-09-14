@@ -419,24 +419,24 @@ def compute_single_iter(
             threshold=threshold,
             device=device)
 
-    # indiveff = compute_indiveff(
-    #         maineff=maineff,
-    #         noiselogvar=noiselogvar,
-    #         x=x, y=y, s=s,
-    #         hidden_widths=tuple([e//4 for e in hidden_widths[::2]]),
-    #         activation=activation,
-    #         lr=lr, batch_size=batch_size,
-    #         epochs=(epochs+1)//2,
-    #         prefix=f'{prefix}indiveff-', device=device)
+    indiveff = compute_indiveff(
+            maineff=maineff,
+            noiselogvar=noiselogvar,
+            x=x, y=y, s=s,
+            hidden_widths=tuple([e//4 for e in hidden_widths[::2]]),
+            activation=activation,
+            lr=lr, batch_size=batch_size,
+            epochs=(epochs+1)//2,
+            prefix=f'{prefix_image}indiveff-', device=device)
 
-    # noiselogvar = compute_noiselogvar(
-    #         maineff=maineff, indiveff=indiveff,
-    #         x=x, y=y, s=s,
-    #         hidden_widths=hidden_widths,
-    #         activation=activation,
-    #         lr=lr, batch_size=batch_size,
-    #         epochs=(epochs+4)//5,
-    #         prefix=f'{prefix}noiselogvar-', device=device)
+    noiselogvar = compute_noiselogvar(
+            maineff=maineff, indiveff=indiveff,
+            x=x, y=y, s=s,
+            hidden_widths=hidden_widths,
+            activation=activation,
+            lr=lr, batch_size=batch_size,
+            epochs=(epochs+4)//5,
+            prefix=f'{prefix_image}noiselogvar-', device=device)
 
     pred = dict(
             maineff=maineff, indiveff=indiveff, noiselogvar=noiselogvar,
@@ -446,8 +446,31 @@ def compute_single_iter(
     return pred
 
 
-def compute_single_iter_kwargs(kwargs):
-    return compute_single_iter(**kwargs)
+def compute_multi_iter(
+        maineff, indiveff, noiselogvar, threshold,
+        x, y, s, img_shape,
+        hidden_widths, activation, lr, batch_size, epochs,
+        max_iter, prefix_model, prefix_image, device=None):
+
+    for i_iter in range(max_iter):
+        prefix_model += 'iter{i_iter:02d}-'
+        prefix_model += 'iter{i_iter:02d}-'
+        pred = compute_single_iter(
+                maineff=maineff, indiveff=indiveff,
+                noiselogvar=noiselogvar, threshold=threshold,
+                x=x, y=y, s=s, img_shape=img_shape,
+                hidden_widths=hidden_widths, activation=activation,
+                lr=lr, batch_size=batch_size, epochs=epochs,
+                prefix_model=prefix_model, prefix_image=prefix_image,
+                device=device)
+        maineff = pred['maineff']
+        indiveff = pred['indiveff']
+        noiselogvar = pred['noiselogvar']
+    return pred
+
+
+def compute_multi_iter_kwargs(kwargs):
+    return compute_multi_iter(**kwargs)
 
 
 def combine_states(pred_list, alpha=0.5):
@@ -479,7 +502,7 @@ def fit_nnisr(
         hidden_widths=(256,)*4, activation='leakyrelu',
         alpha_threshold=0.05,
         n_permute=100, lr=1e-3, epochs=50, batch_size=4096,
-        n_states=11, alpha_states=0.5,
+        max_iter=2, n_states=11, alpha_states=0.5,
         prefix='nnisr/', device=None, n_jobs=None):
 
     if device is None:
@@ -512,7 +535,7 @@ def fit_nnisr(
                 x=x, y=y, s=s, img_shape=img_shape,
                 hidden_widths=hidden_widths,
                 activation=activation,
-                lr=lr, batch_size=batch_size,
+                lr=lr, batch_size=batch_size, max_iter=max_iter,
                 epochs=epochs,
                 prefix_model=f'{prefix}states/state{i_state:02d}-',
                 prefix_image=f'{prefix}states/state{i_state:02d}-',
@@ -525,10 +548,10 @@ def fit_nnisr(
         n_jobs = n_jobs
     if n_jobs > 1:
         with multiprocessing.Pool(processes=n_jobs) as pool:
-            pred_list = pool.map(compute_single_iter_kwargs, kwargs_list)
+            pred_list = pool.map(compute_multi_iter_kwargs, kwargs_list)
     else:
         pred_list = [
-                compute_single_iter_kwargs(kwargs)
+                compute_multi_iter_kwargs(kwargs)
                 for kwargs in kwargs_list]
 
     save_pickle(pred_list, f'{prefix}pred-list.pickle')

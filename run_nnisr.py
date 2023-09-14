@@ -24,6 +24,7 @@ def get_args():
     parser.add_argument('--activation', type=str, default='leaky')
     parser.add_argument('--alpha-threshold', type=float, default=0.05)
     parser.add_argument('--n-permute', type=int, default=100)
+    parser.add_argument('--max-iter', type=int, default=2)
     parser.add_argument('--n-states', type=int, default=11)
     parser.add_argument('--alpha-states', type=float, default=0.5)
     parser.add_argument('--lr', type=float, default=1e-3)
@@ -89,7 +90,8 @@ def main():
             alpha_threshold=args.alpha_threshold,
             n_permute=args.n_permute, lr=args.lr,
             epochs=args.epochs, batch_size=batch_size,
-            n_states=args.n_states, alpha_states=args.alpha_states,
+            max_iter=args.max_iter, n_states=args.n_states,
+            alpha_states=args.alpha_states,
             prefix=args.prefix, device=device, n_jobs=args.n_jobs)
     print(int(time() - t0), 'sec')
 
