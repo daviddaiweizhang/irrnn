@@ -1,19 +1,14 @@
 #!/bin/bash
 set -e
 
-indivs=020
-voxels=128
-noise=gauss
-seed=00
-datafile="data.pickle"
-outpref="results/"
+datafile="demo/data.pickle"
+outpref="demo/results/"
 
 python generate_data_synthetic.py \
-    --n-voxels=${voxels} \
-    --n-indivs=${indivs} \
-    --beta-stn=0.10 \
-    --noise-dist=${noise} \
-    --seed=${seed} \
+    --n-voxels=20 \
+    --n-indivs=128 \
+    --beta-stn=0.1 \
+    --noise-dist=gauss \
     --out=${datafile}
 
-python run_irrnn.py $datafile $outpref
+python run_irrnn.py ${datafile} ${outpref}
