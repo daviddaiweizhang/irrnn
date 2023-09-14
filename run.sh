@@ -5,8 +5,8 @@ datafile="demo/data.pickle"
 outpref="demo/results/"
 
 python generate_data_synthetic.py \
-    --n-voxels=20 \
-    --n-indivs=128 \
+    --n-voxels=128 \
+    --n-indivs=20 \
     --beta-stn=0.1 \
     --noise-dist=gauss \
     --out=${datafile}

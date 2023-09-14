@@ -467,8 +467,8 @@ def compute_multi_iter(
         max_iter, prefix_model, prefix_image, device=None):
 
     for i_iter in range(max_iter):
-        prefix_model += f'iter{i_iter:02d}-'
-        prefix_model += f'iter{i_iter:02d}-'
+        prefix_model = prefix_model + f'iter{i_iter:02d}-'
+        prefix_image = prefix_image + f'iter{i_iter:02d}-'
         pred = compute_single_iter(
                 maineff=maineff, indiveff=indiveff,
                 noiselogvar=noiselogvar, threshold=threshold,
